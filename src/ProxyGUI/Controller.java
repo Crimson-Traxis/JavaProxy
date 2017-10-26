@@ -11,6 +11,8 @@ import javafx.scene.shape.Circle;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
@@ -49,7 +51,7 @@ public class Controller implements Initializable {
     private TextField textPort;
 
     private ExecutorService executor;
-    private ServerSocket serverSocket;
+    private ServerSocket fromClient;
     private final AtomicLong sequenceNumber = new AtomicLong(0);
 
     @Override
@@ -60,11 +62,11 @@ public class Controller implements Initializable {
     public void StarServer() {
         buttonStart.setDisable(true);
         try {
-            serverSocket = new ServerSocket(Integer.parseInt(textPort.getText()));
+            fromClient = new ServerSocket(Integer.parseInt(textPort.getText()));
             executor.execute(() ->{
                 while(true) {
                     try {
-                        Socket request = serverSocket.accept();
+                        Socket request = fromClient.accept();
                         HandleConnection(request,executor);
                     }
                     catch (Exception ex) {
@@ -88,19 +90,24 @@ public class Controller implements Initializable {
 
                 BufferedReader httpRequestStream = new BufferedReader(new InputStreamReader(request.getInputStream()));
 
-                String httpRequestString = "";
+                String httpClientRequestString = "";
                 String line;
                 while((line = httpRequestStream.readLine()) != null) {
                     if(line.length() == 0) {
                         break;
                     }
-                    httpRequestString += line + "\r\n";
+                    httpClientRequestString += line + "\r\n";
                 }
-                httpRequestString += "\r\n";
+                httpClientRequestString += "\r\n";
 
-                HTTPRequest clientHttpRequest = new HTTPRequest(httpRequestString);
+                HTTPRequest clientHttpRequest = new HTTPRequest(httpClientRequestString);
 
-                Platform.runLater(new UpdateTextField(textClientRequests,"Handling a new request: " + ID + "\n" + httpRequestString + "\n\n"));
+                if(clientHttpRequest.Method().toUpperCase().equals("GET")) {
+                    Platform.runLater(new UpdateTextField(textClientRequests,"Handling a new request: " + ID + "\n" + httpClientRequestString + "\n\n"));
+                }
+                else {
+
+                }
 
                 HTTPResponse httpResponse = new HTTPResponse();
 

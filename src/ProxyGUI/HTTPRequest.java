@@ -54,15 +54,6 @@ public class HTTPRequest {
     }
 
     /**
-     * Gets path from http request
-     * @param none
-     * @return Nothing.
-     */
-    public String Path() {
-        return generalHeader.split(" ")[1];
-    }
-
-    /**
      * Gets general header
      * @param none
      * @return string.
@@ -88,4 +79,8 @@ public class HTTPRequest {
     public byte[] Body() {
         return requestBody.toString().getBytes();
     }
+
+    public String Method() {return generalHeader.split(" ")[0];}
+
+    public String URI() {return  generalHeader.split(" ")[1];}
 }
