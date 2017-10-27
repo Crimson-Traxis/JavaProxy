@@ -8,14 +8,13 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Circle;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
-import java.io.StringReader;
+import javax.swing.text.Style;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,34 +87,34 @@ public class Controller implements Initializable {
             try {
                 long ID = sequenceNumber.getAndIncrement();
 
-                BufferedReader httpRequestStream = new BufferedReader(new InputStreamReader(request.getInputStream()));
+                HTTPObject clientHttpRequest = new HTTPObject(request.getInputStream());
 
-                String httpClientRequestString = "";
-                String line;
-                while((line = httpRequestStream.readLine()) != null) {
-                    if(line.length() == 0) {
-                        break;
-                    }
-                    httpClientRequestString += line + "\r\n";
-                }
-                httpClientRequestString += "\r\n";
-
-                HTTPRequest clientHttpRequest = new HTTPRequest(httpClientRequestString);
+                String hostIP = InetAddress.getByName(new URL(("http://" + clientHttpRequest.HeaderParameter("Host").replace(" ",""))).getHost()).getHostAddress();
 
                 if(clientHttpRequest.Method().toUpperCase().equals("GET")) {
-                    Platform.runLater(new UpdateTextField(textClientRequests,"Handling a new request: " + ID + "\n" + httpClientRequestString + "\n\n"));
-                }
-                else {
+                    Platform.runLater(new UpdateTextField(textClientRequests,"Handling a new request: " + ID + "\n" + Arrays.toString(clientHttpRequest.GetBytes()) + "\n\n"));
+
+                    Socket toServer = new Socket(hostIP,80);
+
+                    DataOutputStream outToServer = new DataOutputStream(toServer.getOutputStream());
+
+                    Platform.runLater(new UpdateTextField(textServerRequests,"Sending a new request: " + ID + "\n" + Arrays.toString(clientHttpRequest.GetBytes()) + "\n\n"));
+
+                    outToServer.write(clientHttpRequest.GetBytes());
+
+                    HTTPObject serverHttpResponse = new HTTPObject(toServer.getInputStream());
+
+                    Platform.runLater(new UpdateTextField(textSeverResponses,"Receiving a new response: " + ID + "\n" + Arrays.toString(serverHttpResponse.GetBytes()) + "\n\n"));
+
+                    request.getOutputStream().write(serverHttpResponse.GetBytes());
+
+                    Platform.runLater(new UpdateTextField(textClientResponses,"Sending a new response: " + ID + "\n" + Arrays.toString(serverHttpResponse.GetBytes()) + "\n\n"));
+
+                    toServer.close();
+                    fromClient.close();
 
                 }
 
-                HTTPResponse httpResponse = new HTTPResponse();
-
-                httpResponse.AddHeader("Connection","close");
-
-                httpResponse.SendResponse(request.getOutputStream());
-
-                httpRequestStream.close();
                 request.close();
 
             } catch (Exception ex) {
@@ -136,7 +135,7 @@ public class Controller implements Initializable {
         try {
             buttonStart.setDisable(false);
             serverStatus.setFill(Color.RED);
-            serverSocket.close();
+            fromClient.close();
         }catch (Exception ex) {
 
         }
@@ -144,7 +143,7 @@ public class Controller implements Initializable {
 
     public void OnClose() {
         try {
-            serverSocket.close();
+            fromClient.close();
             System.out.println("Closed");
         }
         catch (Exception ex) {
